@@ -1,12 +1,16 @@
-/*
-
-B221210073 - Berkay GÖÇER
-B221210078 - Burak ODABAŞ
-B211210021 - Buse Nur ÖĞÜNŞEN
-B221210040 - Mert BAYIR
-G221210073 - Elif GÜNAYDIN
-
+/**
+* @file           utils.h
+* @description    İşletim Sistemleri Dersi Proje Ödevi
+* @course         1A ve 2A grubu
+* @assignment     Projeodevi
+* @date           26.12.2024
+* @author         Elif Günaydın elif.gunaydin2@ogr.sakarya.edu.tr
+* @author         Mert Bayır mert.bayir1@ogr.sakarya.edu.tr
+* @author         Buse Nur Öğünşen buse.ogunsen@ogr.sakarya.edu.tr
+* @author         Berkay Göçer berkay.gocer@ogr.sakarya.edu.tr
+* @author         Burak Odabaş burak.odabas2@ogr.sakarya.edu.tr
 */
+
 #ifndef UTILS_H
 #define UTILS_H
 
