@@ -1,7 +1,7 @@
 /**
 * @file           command_handler.c
 * @description    İşletim Sistemleri Dersi Proje Ödevi
-* @course         1A ve 2A grubu
+* @course         1A ,1C ve 2A grubu
 * @assignment     Projeodevi
 * @date           26.12.2024
 * @author         Elif Günaydın elif.gunaydin2@ogr.sakarya.edu.tr
@@ -24,35 +24,38 @@
 #include "background.h"
 #include "utils.h"
 
-
+/**
+ * Komut satırından I/O yönlendirme bayraklarını ayıklar
+ * @param command İşlenecek komut satırı
+ * @return Ayıklanan I/O bayrakları
+ */
 static IOFlags parse_io_flags(char *command) {
     IOFlags flags = {NULL, NULL, 0, 0};
 
-    // Background check
+    // Arka plan işlem kontrolü ('&' işareti)
     if (command[strlen(command) - 1] == '&') {
         flags.background = 1;
         command[strlen(command) - 1] = '\0';
-        // Remove trailing spaces
+        // Sondaki boşlukları temizle
         while (strlen(command) > 0 && command[strlen(command) - 1] == ' ') {
             command[strlen(command) - 1] = '\0';
         }
     }
 
-    // Input redirection
+    // Girdi yönlendirmesi ('<' işareti)
     char *input = strstr(command, "<");
     if (input) {
         *input = '\0';
         flags.input_file = trim(input + 1);
     }
 
-    // Output redirection with append
+    // Çıktı yönlendirmesi ('>>' ve '>' işaretleri)
     char *output = strstr(command, ">>");
     if (output) {
         *output = '\0';
         flags.output_file = trim(output + 2);
         flags.append_output = 1;
     } else {
-        // Normal output redirection
         output = strstr(command, ">");
         if (output) {
             *output = '\0';
@@ -63,6 +66,11 @@ static IOFlags parse_io_flags(char *command) {
     return flags;
 }
 
+/**
+ * Echo komutunu işler
+ * @param args Komut argümanları
+ * @return İşlem başarısı
+ */
 static int handle_builtin_echo(char **args) {
     int i = 1;
     while (args[i] != NULL) {
@@ -76,9 +84,15 @@ static int handle_builtin_echo(char **args) {
     return 1;
 }
 
+/**
+ * Dahili komutları (cd, echo) işler
+ * @param args Komut argümanları
+ * @return Komut işlendiyse 1, aksi halde 0
+ */
 static int handle_builtin_commands(char **args) {
     if (!args[0]) return 0;
 
+    // cd komutu işleme
     if (strcmp(args[0], "cd") == 0) {
         if (!args[1]) {
             const char *home = getenv("HOME");
@@ -92,6 +106,7 @@ static int handle_builtin_commands(char **args) {
         return 1;
     }
 
+    // echo komutu işleme
     if (strcmp(args[0], "echo") == 0) {
         return handle_builtin_echo(args);
     }
@@ -99,22 +114,25 @@ static int handle_builtin_commands(char **args) {
     return 0;
 }
 
+/**
+ * Tek bir komutu çalıştırır
+ * @param command Çalıştırılacak komut
+ * @param flags I/O yönlendirme bayrakları
+ */
 static void execute_single_command(char *command, IOFlags *flags) {
     char *args[MAX_ARGS];
     int arg_count = tokenize_command(command, args, MAX_ARGS);
 
     if (arg_count == 0) return;
 
-    // Built-in komutlar için özel işlem
+    // Dahili komutları kontrol et
     if (!flags->input_file && !flags->output_file && handle_builtin_commands(args)) {
         return;
     }
 
     pid_t pid = fork();
     if (pid == 0) {
-        // Çocuk process
-
-        // I/O yönlendirmelerini ayarla
+        // Çocuk process'te I/O yönlendirmelerini ayarla
         if (flags->input_file) {
             int fd = open(flags->input_file, O_RDONLY);
             if (fd == -1) {
@@ -128,6 +146,7 @@ static void execute_single_command(char *command, IOFlags *flags) {
             close(fd);
         }
 
+        // Çıktı yönlendirmesi
         if (flags->output_file) {
             int flags_out = O_WRONLY | O_CREAT;
             flags_out |= flags->append_output ? O_APPEND : O_TRUNC;
@@ -144,7 +163,7 @@ static void execute_single_command(char *command, IOFlags *flags) {
             close(fd);
         }
 
-        // Tüm açık dosya tanımlayıcılarını temizle
+        // Açık dosya tanımlayıcılarını temizle
         for (int i = 3; i < 256; i++) {
             close(i);
         }
@@ -153,12 +172,11 @@ static void execute_single_command(char *command, IOFlags *flags) {
         perror("Command execution failed");
         exit(1);
     } else if (pid > 0) {
-        // Ana process
+        // Ana process'te arka plan veya önplan işlem kontrolü
         if (!flags->background) {
             int status;
             waitpid(pid, &status, 0);
             if (WIFEXITED(status) && WEXITSTATUS(status) != 0) {
-                // Komut hata ile sonlandı
                 return;
             }
         } else {
@@ -170,6 +188,10 @@ static void execute_single_command(char *command, IOFlags *flags) {
     }
 }
 
+/**
+ * Noktalı virgülle ayrılmış sıralı komutları işler
+ * @param command_line Komut satırı
+ */
 static void handle_sequential_commands(char *command_line) {
     char **commands = split_string(command_line, ";");
     if (!commands) return;
@@ -178,17 +200,16 @@ static void handle_sequential_commands(char *command_line) {
         char *cmd = trim(commands[i]);
         if (strlen(cmd) == 0) continue;
 
-        // Her komut için I/O flags'leri parse et
         char *cmd_copy = strdup(cmd);
         IOFlags flags = parse_io_flags(cmd_copy);
 
         if (strchr(cmd, '|')) {
-            // Pipe varsa
+            // Pipe içeren komutları işle
             char **pipe_commands = split_string(cmd, "|");
             execute_pipe(pipe_commands);
             free_split_string(pipe_commands);
         } else {
-            // Tek komut
+            // Tek komutu işle
             execute_single_command(cmd_copy, &flags);
         }
 
@@ -198,6 +219,10 @@ static void handle_sequential_commands(char *command_line) {
     free_split_string(commands);
 }
 
+/**
+ * Ana komut işleme fonksiyonu
+ * @param command İşlenecek komut
+ */
 void handle_command(char *command) {
     if (!command || strlen(command) == 0) return;
 
@@ -206,15 +231,16 @@ void handle_command(char *command) {
         return;
     }
 
-    // Komutun kopyasını al
     char *cmd_copy = strdup(command);
     IOFlags flags = parse_io_flags(cmd_copy);
 
     if (strchr(cmd_copy, '|')) {
+        // Pipe içeren komutları işle
         char **pipe_commands = split_string(cmd_copy, "|");
         execute_pipe(pipe_commands);
         free_split_string(pipe_commands);
     } else {
+        // Tek komutu işle
         execute_single_command(cmd_copy, &flags);
     }
 

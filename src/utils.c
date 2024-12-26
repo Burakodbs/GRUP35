@@ -1,7 +1,7 @@
 /**
 * @file           utils.c
 * @description    İşletim Sistemleri Dersi Proje Ödevi
-* @course         1A ve 2A grubu
+* @course         1A ,1C ve 2A grubu
 * @assignment     Projeodevi
 * @date           26.12.2024
 * @author         Elif Günaydın elif.gunaydin2@ogr.sakarya.edu.tr
@@ -17,21 +17,28 @@
 #include <ctype.h>
 #include "utils.h"
 
+// Komut geçmişi için sabitler
 #define HISTORY_FILE ".shell_history"
 #define MAX_HISTORY 1000
 
+// Komut geçmişi için statik değişkenler
 static char *history[MAX_HISTORY];
 static int history_count = 0;
 
+/**
+ * Verilen dizginin başındaki ve sonundaki boşlukları temizler
+ * @param str Temizlenecek dizgi
+ * @return Temizlenmiş dizgi
+ */
 char *trim(char *str) {
     if (!str) return NULL;
 
-    // Trim leading spaces
+    // Baştaki boşlukları atla
     while (isspace(*str)) str++;
 
     if (*str == 0) return str;
 
-    // Trim trailing spaces
+    // Sondaki boşlukları temizle
     char *end = str + strlen(str) - 1;
     while (end > str && isspace(*end)) end--;
 
@@ -39,6 +46,13 @@ char *trim(char *str) {
     return str;
 }
 
+/**
+ * Komutu boşluk ve tab karakterlerine göre parçalara ayırır
+ * @param command Ayrıştırılacak komut
+ * @param args Argümanların saklanacağı dizi
+ * @param max_args Maksimum argüman sayısı
+ * @return Argüman sayısı
+ */
 int tokenize_command(char *command, char **args, int max_args) {
     int arg_count = 0;
     char *token = strtok(command, " \t");
@@ -52,6 +66,12 @@ int tokenize_command(char *command, char **args, int max_args) {
     return arg_count;
 }
 
+/**
+ * Dizgiyi belirtilen ayırıcıya göre parçalara böler
+ * @param input Bölünecek dizgi
+ * @param delimiter Ayırıcı karakter(ler)
+ * @return Bölünmüş parçaları içeren karakter dizisi
+ */
 char **split_string(const char *input, const char *delimiter) {
     if (!input || !delimiter) return NULL;
 
@@ -63,6 +83,7 @@ char **split_string(const char *input, const char *delimiter) {
     char *token = strtok(str, delimiter);
 
     while (token) {
+        // Bellek alanını genişlet
         char **temp = realloc(result, sizeof(char*) * (count + 1));
         if (!temp) {
             free_split_string(result);
@@ -71,6 +92,7 @@ char **split_string(const char *input, const char *delimiter) {
         }
         result = temp;
 
+        // Yeni parçayı kopyala
         result[count] = strdup(token);
         if (!result[count]) {
             free_split_string(result);
@@ -82,6 +104,7 @@ char **split_string(const char *input, const char *delimiter) {
         token = strtok(NULL, delimiter);
     }
 
+    // NULL sonlandırıcı için yer ekle
     char **temp = realloc(result, sizeof(char*) * (count + 1));
     if (!temp) {
         free_split_string(result);
@@ -95,6 +118,10 @@ char **split_string(const char *input, const char *delimiter) {
     return result;
 }
 
+/**
+ * split_string ile ayrıştırılan belleği temizler
+ * @param split Temizlenecek karakter dizisi
+ */
 void free_split_string(char **split) {
     if (!split) return;
 
@@ -104,8 +131,13 @@ void free_split_string(char **split) {
     free(split);
 }
 
+/**
+ * Komutu geçmiş listesine ekler
+ * @param command Eklenecek komut
+ */
 void add_to_history(const char *command) {
     if (history_count >= MAX_HISTORY) {
+        // Liste doluysa en eski komutu sil
         free(history[0]);
         for (int i = 1; i < MAX_HISTORY; i++) {
             history[i-1] = history[i];
@@ -116,6 +148,9 @@ void add_to_history(const char *command) {
     history[history_count++] = strdup(command);
 }
 
+/**
+ * Komut geçmişini dosyadan yükler
+ */
 void load_history() {
     char path[1024];
     snprintf(path, sizeof(path), "%s/%s", getenv("HOME"), HISTORY_FILE);
@@ -132,6 +167,9 @@ void load_history() {
     fclose(fp);
 }
 
+/**
+ * Komut geçmişini dosyaya kaydeder
+ */
 void save_history() {
     char path[1024];
     snprintf(path, sizeof(path), "%s/%s", getenv("HOME"), HISTORY_FILE);
